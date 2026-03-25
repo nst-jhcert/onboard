@@ -26,16 +26,12 @@ def create_memo(memo: MemoCreate, db: Session = Depends(get_db)):
     delete_cache("memos:all")
     return new_memo
 
-
-# ── 단건 조회 ──
 @router.get("/{memo_id}", response_model=MemoResponse)
 def read_memo(memo_id: int, db: Session = Depends(get_db)):
-    # 1) 캐시 확인
     cached = get_cache(f"memos:{memo_id}")
     if cached:
         return cached
-
-    # 2) DB 조회
+    
     memo = db.query(MemoModel).filter(MemoModel.id == memo_id).first()
     if not memo:
         raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
