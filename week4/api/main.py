@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import csp
+from routers import ccsds, csp
 
 api = FastAPI(
     title="ONBOARD-WEEK4",
@@ -19,6 +19,7 @@ api.add_middleware(
 )
 
 api.include_router(csp.router, prefix="/csp", tags=["CSP"])
+api.include_router(ccsds.router, prefix="/ccsds", tags=["CCSDS"])
 
 
 @api.get("/")
