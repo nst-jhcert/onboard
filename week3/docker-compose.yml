@@ -4,6 +4,8 @@ services:
       context: ./csp
       dockerfile: dockerfile
     container_name: onboard-week3-csp
+    environment:
+      - PYTHONUNBUFFERED=1
     ports:
       - "2222:22"
     volumes:
