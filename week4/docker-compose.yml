@@ -25,3 +25,41 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+
+  mqbroker:
+    container_name: onboard-week4-mqbroker
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mqbroker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: unless-stopped
+
+  mqpub:
+    container_name: onboard-week4-mqpub
+    build:
+      context: ./mqpub
+      dockerfile: dockerfile
+    volumes:
+      - ./mqpub:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mqbroker
+      - mqsubws
+    restart: unless-stopped
+
+  mqsubws:
+    container_name: onboard-week4-mqsubws
+    build:
+      context: ./mqsubws
+      dockerfile: dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./mqsubws:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mqbroker
+    restart: unless-stopped
