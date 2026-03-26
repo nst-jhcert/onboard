@@ -15,8 +15,8 @@ interface CspHeader {
 
 interface ParseResult {
   header: CspHeader;
+  payload: string;
   raw_hex: string;
-  raw_int: number;
 }
 
 export default function CspParse() {
@@ -29,7 +29,7 @@ export default function CspParse() {
     setResult(null);
 
     try {
-      const res = await fetch(`${API_URL}/csp/parse`, {
+      const res = await fetch(`${API_URL}/csp/packet/parse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ raw: rawInput }),
@@ -50,14 +50,14 @@ export default function CspParse() {
   return (
     <section>
       <h2>CSP Parse</h2>
-      <p>32-bit hex 값을 입력하면 CSP 헤더 필드로 분해합니다.</p>
+      <p>CSP 패킷 hex를 입력하면 헤더와 페이로드로 분해합니다.</p>
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
         <input
           type="text"
           value={rawInput}
           onChange={(e) => setRawInput(e.target.value)}
-          placeholder="예: A5143403"
+          placeholder="예: A514340348656C6C6F"
           style={{ padding: "8px", fontFamily: "monospace", flex: 1 }}
         />
         <button onClick={handleParse} style={{ padding: "8px 16px" }}>
@@ -82,8 +82,8 @@ export default function CspParse() {
             <tr><td style={tdStyle}>Dest Port</td><td style={tdStyle}>{result.header.dport}</td></tr>
             <tr><td style={tdStyle}>Src Port</td><td style={tdStyle}>{result.header.sport}</td></tr>
             <tr><td style={tdStyle}>Flags</td><td style={tdStyle}>0x{result.header.flags.toString(16).toUpperCase().padStart(2, "0")}</td></tr>
-            <tr><td style={tdStyle}>Raw Hex</td><td style={tdStyle}>{result.raw_hex}</td></tr>
-            <tr><td style={tdStyle}>Raw Int</td><td style={tdStyle}>{result.raw_int}</td></tr>
+            <tr><td style={tdStyle}>Payload</td><td style={tdStyle}>{result.payload || "(empty)"}</td></tr>
+            <tr><td style={tdStyle}>Full Packet</td><td style={tdStyle}>{result.raw_hex}</td></tr>
           </tbody>
         </table>
       )}

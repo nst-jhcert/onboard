@@ -4,10 +4,10 @@ import { useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-interface SerializeResult {
+interface BuildResult {
   raw_hex: string;
-  raw_int: number;
   raw_bytes: number[];
+  length: number;
 }
 
 const FIELDS = [
@@ -30,27 +30,28 @@ export default function CspSerialize() {
     sport: 0,
     flags: 0,
   });
-  const [result, setResult] = useState<SerializeResult | null>(null);
+  const [payload, setPayload] = useState("");
+  const [result, setResult] = useState<BuildResult | null>(null);
   const [error, setError] = useState("");
 
   const handleChange = (name: FieldName, value: string) => {
     setFields((prev) => ({ ...prev, [name]: Number(value) || 0 }));
   };
 
-  const handleSerialize = async () => {
+  const handleBuild = async () => {
     setError("");
     setResult(null);
 
     try {
-      const res = await fetch(`${API_URL}/csp/serialize`, {
+      const res = await fetch(`${API_URL}/csp/packet/build`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fields),
+        body: JSON.stringify({ header: fields, payload }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.detail || "Serialize failed");
+        setError(data.detail || "Build failed");
         return;
       }
 
@@ -62,10 +63,10 @@ export default function CspSerialize() {
 
   return (
     <section>
-      <h2>CSP Serialize</h2>
-      <p>CSP 헤더 필드를 입력하면 32-bit raw 값으로 직렬화합니다.</p>
+      <h2>CSP Build</h2>
+      <p>CSP 헤더 필드와 페이로드를 입력하면 전체 패킷을 생성합니다.</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
         {FIELDS.map((f) => (
           <label key={f.name} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <span>{f.label} ({f.min}-{f.max})</span>
@@ -81,8 +82,19 @@ export default function CspSerialize() {
         ))}
       </div>
 
-      <button onClick={handleSerialize} style={{ padding: "8px 16px", marginBottom: "16px" }}>
-        Serialize
+      <label style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "16px" }}>
+        <span>Payload (hex)</span>
+        <input
+          type="text"
+          value={payload}
+          onChange={(e) => setPayload(e.target.value)}
+          placeholder="예: 48656C6C6F"
+          style={{ padding: "8px", fontFamily: "monospace" }}
+        />
+      </label>
+
+      <button onClick={handleBuild} style={{ padding: "8px 16px", marginBottom: "16px" }}>
+        Build
       </button>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
@@ -96,9 +108,9 @@ export default function CspSerialize() {
             </tr>
           </thead>
           <tbody>
-            <tr><td style={tdStyle}>Raw Hex</td><td style={tdStyle}>{result.raw_hex}</td></tr>
-            <tr><td style={tdStyle}>Raw Int</td><td style={tdStyle}>{result.raw_int}</td></tr>
+            <tr><td style={tdStyle}>Full Packet</td><td style={tdStyle}>{result.raw_hex}</td></tr>
             <tr><td style={tdStyle}>Raw Bytes</td><td style={tdStyle}>[{result.raw_bytes.join(", ")}]</td></tr>
+            <tr><td style={tdStyle}>Length</td><td style={tdStyle}>{result.length} bytes</td></tr>
           </tbody>
         </table>
       )}

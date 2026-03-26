@@ -89,3 +89,26 @@ def to_bytes(header: CspHeader) -> bytes:
     """Serialize structured fields into 4-byte buffer (big-endian)."""
     raw = serialize(header)
     return raw.to_bytes(4, byteorder="big")
+
+
+class CspPacket(BaseModel):
+    """CSP packet: header + payload."""
+
+    header: CspHeader
+    payload: str = Field(default="", description="Payload as hex string (e.g. '48656C6C6F')")
+
+
+def parse_packet(data: bytes) -> CspPacket:
+    """Parse raw bytes into CSP packet (header + payload)."""
+    if len(data) < 4:
+        raise ValueError("CSP packet must be at least 4 bytes (header)")
+    header = from_bytes(data[:4])
+    payload_hex = data[4:].hex().upper()
+    return CspPacket(header=header, payload=payload_hex)
+
+
+def build_packet(packet: CspPacket) -> bytes:
+    """Build raw bytes from CSP packet (header + payload)."""
+    header_bytes = to_bytes(packet.header)
+    payload_bytes = bytes.fromhex(packet.payload) if packet.payload else b""
+    return header_bytes + payload_bytes
