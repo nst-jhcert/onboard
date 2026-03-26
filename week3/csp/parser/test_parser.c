@@ -6,69 +6,58 @@
 static int g_tests_passed = 0;
 static int g_tests_failed = 0;
 
-#define ASSERT_EQ(a, b)                                              \
-  do {                                                               \
-    if ((a) != (b)) {                                                \
-      printf("FAIL (line %d: 0x%X != 0x%X)\n", __LINE__,            \
-             (unsigned)(a), (unsigned)(b));                           \
-      g_tests_failed++;                                              \
-      return;                                                        \
-    }                                                                \
+#define ASSERT_EQ(a, b)                                                  \
+  do {                                                                   \
+    if ((a) != (b)) {                                                    \
+      printf("  => FAIL (line %d: 0x%X != 0x%X)\n\n", __LINE__,         \
+             (unsigned)(a), (unsigned)(b));                               \
+      g_tests_failed++;                                                  \
+      return;                                                            \
+    }                                                                    \
   } while (0)
 
-#define RUN_TEST(fn)                    \
-  do {                                  \
-    printf("TEST: %-30s ... ", #fn);    \
-    fn();                               \
-    printf("\n");                        \
+#define RUN_TEST(fn)                              \
+  do {                                            \
+    printf("--- %-34s ---\n", #fn);               \
+    fn();                                         \
   } while (0)
 
-#define PASS()                           \
-  do {                                   \
-    printf("OK");                        \
-    g_tests_passed++;                    \
+#define PASS()                                    \
+  do {                                            \
+    printf("  => PASS\n\n");                      \
+    g_tests_passed++;                             \
   } while (0)
 
-// Prints a 32-bit raw header as a binary bit-field diagram.
-static void PrintRawBits(const char *label, uint32_t raw) {
-  printf("  %s: 0x%08X\n", label, raw);
-  printf("    PRI=%u SRC=%u DST=%u DPORT=%u SPORT=%u FLAGS=0x%02X\n",
-         (raw >> 30) & 0x3,
-         (raw >> 25) & 0x1F,
-         (raw >> 20) & 0x1F,
-         (raw >> 14) & 0x3F,
-         (raw >> 8) & 0x3F,
-         raw & 0xFF);
+// Formats a raw 32-bit header into a single-line string with hex and fields.
+static void FormatRaw(char *buf, size_t len, uint32_t raw) {
+  snprintf(buf, len,
+           "0x%08X [PRI=%u SRC=%2u DST=%2u DP=%2u SP=%2u FL=0x%02X]",
+           raw,
+           (raw >> 30) & 0x3,
+           (raw >> 25) & 0x1F,
+           (raw >> 20) & 0x1F,
+           (raw >> 14) & 0x3F,
+           (raw >> 8) & 0x3F,
+           raw & 0xFF);
 }
 
-// Logs the loopback comparison: sent raw, parsed fields, and re-serialized raw.
-static void LogLoopback(uint32_t raw_in, const CspHeader *parsed,
-                        uint32_t raw_out) {
-  PrintRawBits("TX (sent)    ", raw_in);
-  printf("    -> parsed : pri=%u src=%u dst=%u dp=%u sp=%u flags=0x%02X\n",
-         parsed->priority, parsed->source, parsed->destination,
-         parsed->dport, parsed->sport, parsed->flags);
-  PrintRawBits("RX (received)", raw_out);
-  printf("    match     : %s\n", raw_in == raw_out ? "OK" : "MISMATCH");
+// Logs TX(sent) vs RX(received) comparison.
+static void LogLoopback(uint32_t raw_in, uint32_t raw_out) {
+  char tx[128], rx[128];
+  FormatRaw(tx, sizeof(tx), raw_in);
+  FormatRaw(rx, sizeof(rx), raw_out);
+  printf("  TX: %s\n", tx);
+  printf("  RX: %s\n", rx);
 }
 
-// Logs the byte-level loopback comparison.
-static void LogLoopbackBytes(const uint8_t in[4], const CspHeader *parsed,
-                             const uint8_t out[4]) {
-  printf("  TX (sent)    : [%02X %02X %02X %02X]\n",
-         in[0], in[1], in[2], in[3]);
-  printf("    -> parsed : pri=%u src=%u dst=%u dp=%u sp=%u flags=0x%02X\n",
-         parsed->priority, parsed->source, parsed->destination,
-         parsed->dport, parsed->sport, parsed->flags);
-  printf("  RX (received): [%02X %02X %02X %02X]\n",
-         out[0], out[1], out[2], out[3]);
-  int match = (in[0] == out[0] && in[1] == out[1] &&
-               in[2] == out[2] && in[3] == out[3]);
-  printf("    match     : %s\n", match ? "OK" : "MISMATCH");
+// Logs byte-level TX/RX comparison.
+static void LogLoopbackBytes(const uint8_t in[4], const uint8_t out[4]) {
+  printf("  TX: [%02X %02X %02X %02X]\n", in[0], in[1], in[2], in[3]);
+  printf("  RX: [%02X %02X %02X %02X]\n", out[0], out[1], out[2], out[3]);
 }
 
-// Helper: builds a raw 32-bit CSP header from individual field values using
-// direct bit shifts — independent of the parser implementation.
+// Builds a raw 32-bit CSP header from individual field values using direct bit
+// shifts — independent of the parser implementation.
 static uint32_t BuildRawHeader(uint8_t pri, uint8_t src, uint8_t dst,
                                uint8_t dport, uint8_t sport, uint8_t flags) {
   return ((uint32_t)pri << 30) |
@@ -89,9 +78,8 @@ static void TestLoopbackBasic(void) {
   uint32_t raw_out;
   ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
 
-  LogLoopback(raw_in, &header, raw_out);
+  LogLoopback(raw_in, raw_out);
   ASSERT_EQ(raw_out, raw_in);
-
   PASS();
 }
 
@@ -105,10 +93,9 @@ static void TestLoopbackZero(void) {
   uint32_t raw_out;
   ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
 
-  LogLoopback(raw_in, &header, raw_out);
+  LogLoopback(raw_in, raw_out);
   ASSERT_EQ(raw_out, raw_in);
   ASSERT_EQ(raw_out, 0u);
-
   PASS();
 }
 
@@ -123,9 +110,8 @@ static void TestLoopbackMax(void) {
   uint32_t raw_out;
   ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
 
-  LogLoopback(raw_in, &header, raw_out);
+  LogLoopback(raw_in, raw_out);
   ASSERT_EQ(raw_out, raw_in);
-
   PASS();
 }
 
@@ -141,12 +127,9 @@ static void TestLoopbackPriorities(void) {
     uint32_t raw_out;
     ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
 
-    printf("  [pri=%u] ", pri);
-    printf("TX=0x%08X RX=0x%08X %s\n", raw_in, raw_out,
-           raw_in == raw_out ? "OK" : "MISMATCH");
+    printf("  [pri=%u] TX=0x%08X  RX=0x%08X\n", pri, raw_in, raw_out);
     ASSERT_EQ(raw_out, raw_in);
   }
-
   PASS();
 }
 
@@ -170,12 +153,10 @@ static void TestLoopbackFlagBits(void) {
     uint32_t raw_out;
     ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
 
-    printf("  [%-5s 0x%02X] TX=0x%08X RX=0x%08X %s\n",
-           flag_names[i], flag_bits[i], raw_in, raw_out,
-           raw_in == raw_out ? "OK" : "MISMATCH");
+    printf("  [%-5s 0x%02X] TX=0x%08X  RX=0x%08X\n",
+           flag_names[i], flag_bits[i], raw_in, raw_out);
     ASSERT_EQ(raw_out, raw_in);
   }
-
   PASS();
 }
 
@@ -197,18 +178,15 @@ static void TestLoopbackFlagCombos(void) {
     uint32_t raw_out;
     ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
 
-    printf("  [flags=0x%02X] TX=0x%08X RX=0x%08X %s\n",
-           combos[i], raw_in, raw_out,
-           raw_in == raw_out ? "OK" : "MISMATCH");
+    printf("  [flags=0x%02X] TX=0x%08X  RX=0x%08X\n",
+           combos[i], raw_in, raw_out);
     ASSERT_EQ(raw_out, raw_in);
   }
-
   PASS();
 }
 
 // Loopback: sweep all source addresses.
 static void TestLoopbackSrcSweep(void) {
-  int all_ok = 1;
   for (uint8_t src = 0; src <= CSP_ID_HOST_MAX; src++) {
     uint32_t raw_in = BuildRawHeader(0, src, 0, 0, 0, 0);
 
@@ -218,23 +196,15 @@ static void TestLoopbackSrcSweep(void) {
 
     uint32_t raw_out;
     ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
-
-    if (raw_in != raw_out) {
-      printf("  [src=%2u] TX=0x%08X RX=0x%08X MISMATCH\n",
-             src, raw_in, raw_out);
-      all_ok = 0;
-    }
     ASSERT_EQ(raw_out, raw_in);
   }
-  printf("  src=[0..%d] all %d values: %s\n",
-         CSP_ID_HOST_MAX, CSP_ID_HOST_MAX + 1, all_ok ? "OK" : "FAIL");
-
+  printf("  src=[0..%d] all %d values matched\n",
+         CSP_ID_HOST_MAX, CSP_ID_HOST_MAX + 1);
   PASS();
 }
 
 // Loopback: sweep all destination ports.
 static void TestLoopbackDportSweep(void) {
-  int all_ok = 1;
   for (uint8_t dp = 0; dp <= CSP_ID_PORT_MAX; dp++) {
     uint32_t raw_in = BuildRawHeader(0, 0, 0, dp, 0, 0);
 
@@ -244,17 +214,10 @@ static void TestLoopbackDportSweep(void) {
 
     uint32_t raw_out;
     ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
-
-    if (raw_in != raw_out) {
-      printf("  [dport=%2u] TX=0x%08X RX=0x%08X MISMATCH\n",
-             dp, raw_in, raw_out);
-      all_ok = 0;
-    }
     ASSERT_EQ(raw_out, raw_in);
   }
-  printf("  dport=[0..%d] all %d values: %s\n",
-         CSP_ID_PORT_MAX, CSP_ID_PORT_MAX + 1, all_ok ? "OK" : "FAIL");
-
+  printf("  dport=[0..%d] all %d values matched\n",
+         CSP_ID_PORT_MAX, CSP_ID_PORT_MAX + 1);
   PASS();
 }
 
@@ -275,13 +238,11 @@ static void TestLoopbackBytes(void) {
   uint8_t buf_out[4];
   ASSERT_EQ(CspHeaderToBytes(&header, buf_out), 0);
 
-  LogLoopbackBytes(buf_in, &header, buf_out);
-
+  LogLoopbackBytes(buf_in, buf_out);
   ASSERT_EQ(buf_out[0], buf_in[0]);
   ASSERT_EQ(buf_out[1], buf_in[1]);
   ASSERT_EQ(buf_out[2], buf_in[2]);
   ASSERT_EQ(buf_out[3], buf_in[3]);
-
   PASS();
 }
 
@@ -295,9 +256,8 @@ static void TestLoopbackBroadcast(void) {
   uint32_t raw_out;
   ASSERT_EQ(CspHeaderSerialize(&header, &raw_out), 0);
 
-  LogLoopback(raw_in, &header, raw_out);
+  LogLoopback(raw_in, raw_out);
   ASSERT_EQ(raw_out, raw_in);
-
   PASS();
 }
 
@@ -320,6 +280,7 @@ static void TestSerializeRejectsOutOfRange(void) {
   CspHeader bad_sp = {.sport = 64};
   ASSERT_EQ(CspHeaderSerialize(&bad_sp, &raw), -1);
 
+  printf("  all 5 out-of-range cases rejected\n");
   PASS();
 }
 
@@ -334,6 +295,7 @@ static void TestNullSafety(void) {
   ASSERT_EQ(CspHeaderFromBytes(NULL, &header), -1);
   ASSERT_EQ(CspHeaderToBytes(&header, NULL), -1);
 
+  printf("  all 5 NULL cases rejected\n");
   PASS();
 }
 
@@ -353,6 +315,7 @@ int main(void) {
   RUN_TEST(TestSerializeRejectsOutOfRange);
   RUN_TEST(TestNullSafety);
 
-  printf("\nResults: %d passed, %d failed\n", g_tests_passed, g_tests_failed);
+  printf("=================================\n");
+  printf("Results: %d passed, %d failed\n", g_tests_passed, g_tests_failed);
   return g_tests_failed ? 1 : 0;
 }
