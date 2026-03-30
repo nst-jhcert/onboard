@@ -1,0 +1,19 @@
+name: Proxmox
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'week4/**'
+      - 'week5/**'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, proxmox]
+    steps:
+      - uses: actions/checkout@v4
+      - name: deploy
+        run: |
+          docker compose pull
+          docker compose up -d --build --remove-orphans
+          docker image prune -f
