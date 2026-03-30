@@ -8,8 +8,7 @@ from datetime import datetime, timezone
 import paho.mqtt.client as mqtt
 import zmq
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-
-app = FastAPI()
+from contextlib import asynccontextmanager
 
 ZMQ_BIND = "tcp://0.0.0.0:5555"
 MQTT_BROKER = "mqbroker"
@@ -75,19 +74,19 @@ def mqtt_listener():
     client.loop_forever()
 
 
-@app.on_event("startup")
-async def startup():
-    """서버 시작 시 ZeroMQ/MQTT 리스너 스레드 실행."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global loop
     loop = asyncio.get_event_loop()
-
     zmq_thread = threading.Thread(target=zmq_listener, daemon=True)
     zmq_thread.start()
-
     mqtt_thread = threading.Thread(target=mqtt_listener, daemon=True)
     mqtt_thread.start()
-
     print("mqsubws started")
+    yield
+    print("mqsubws stopped")
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.websocket("/ws")
